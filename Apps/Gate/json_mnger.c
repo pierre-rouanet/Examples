@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include "json_mnger.h"
 #include "cmd.h"
 #include "convert.h"
-#include "gate.h"
+#include "json_alloc.h"
+#include "luos_hal.h"
 
 static unsigned int delayms = 0;
 
@@ -26,6 +26,10 @@ void collect_data(container_t *container)
             Luos_SendMsg(container, &json_msg);
         }
     }
+    // wait a little bit for the first reply
+    uint32_t start_time = LuosHAL_GetSystick();
+    while ((start_time == LuosHAL_GetSystick()) && (Luos_NbrAvailableMsg() == 0))
+        ;
 }
 
 // This function will create a json string for containers datas
@@ -45,12 +49,14 @@ void format_data(container_t *container, char *json)
             // check if this is an assert
             if (json_msg->header.cmd == ASSERT)
             {
-                char error_json[256] = "\0";
+                char backup_json[strlen(json)];
+                memcpy(backup_json, json, strlen(json));
                 luos_assert_t assertion;
                 memcpy(assertion.unmap, json_msg->data, json_msg->header.size);
                 assertion.unmap[json_msg->header.size] = '\0';
-                sprintf(error_json, "{\"assert\":{\"node_id\":%d,\"file\":\"%s\",\"line\":%d}}\n", json_msg->header.source, assertion.file, (unsigned int)assertion.line);
-                json_send(error_json);
+                sprintf(json, "{\"assert\":{\"node_id\":%d,\"file\":\"%s\",\"line\":%d}}\n", json_msg->header.source, assertion.file, (unsigned int)assertion.line);
+                json = json_alloc_set_tx_task(strlen(json));
+                memcpy(json, backup_json, strlen(backup_json));
                 continue;
             }
             // get the source of this message
@@ -85,6 +91,7 @@ void format_data(container_t *container, char *json)
             json[strlen(json) - 1] = '\0';
             // End the Json message
             sprintf(json, "%s}}\n", json);
+            json = json_alloc_set_tx_task(strlen(json));
         }
         else
         {
