@@ -71,7 +71,8 @@ void USART3_4_IRQHandler(void)
     {
         LL_USART_ClearFlag_IDLE(USART3);
         // reference received Json and get the next one
-        char *addr = json_alloc_set_rx_task(JSON_BUFF_SIZE - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_3) - 1);
+        volatile uint16_t size = JSON_BUFF_SIZE - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_3) - 1;
+        char *addr = json_alloc_set_rx_task(size);
 
         // HAL_UART_DMAStop(&huart3);
         // HAL_UART_Receive_DMA(&huart3, (void *)addr, JSON_BUFF_SIZE);
